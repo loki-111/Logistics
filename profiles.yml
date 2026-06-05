@@ -1,0 +1,13 @@
+Ny40_account:
+  outputs:
+    dev:
+      account: USHQGRJ-NY40135
+      database: logistic
+      password: Lokesh@2002..s
+      role: accountadmin
+      schema: raw
+      threads: 8
+      type: snowflake
+      user: Lokiee
+      warehouse: compute_wh
+  target: dev

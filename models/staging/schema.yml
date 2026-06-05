@@ -1,0 +1,257 @@
+version: 2
+
+models:
+
+  # ─────────────────────────────────────────────────
+  # stg_manufacturers
+  # ─────────────────────────────────────────────────
+  - name: stg_manufacturers
+    description: >
+      Cleaned and type-cast manufacturer records. Invalid emails, pincodes, and
+      null phones are nullified and flagged with dq_ boolean columns.
+    columns:
+      - name: manufacturer_sk
+        description: SHA-256 surrogate key derived from manufacturer_id.
+        tests:
+          - unique
+          - not_null
+      - name: manufacturer_id
+        description: Natural business key for the manufacturer.
+        tests:
+          - unique
+          - not_null
+      - name: manufacturer_name
+        tests: [not_null]
+      - name: email
+        description: Validated, lowercased email. NULL if format is invalid.
+      - name: pincode
+        description: 6-digit Indian postal code. NULL if not matching ^[1-9][0-9]{5}$.
+      - name: dq_invalid_email
+        description: TRUE when the source email failed validation.
+      - name: dq_invalid_pincode
+        description: TRUE when the source pincode failed the 6-digit format check.
+      - name: dq_null_phone
+        description: TRUE when source phone was null or unparseable.
+
+  # ─────────────────────────────────────────────────
+  # stg_products
+  # ─────────────────────────────────────────────────
+  - name: stg_products
+    description: >
+      Cleaned product catalog with numeric guards on weight and price.
+      Negative or non-numeric values are set to NULL and flagged.
+    columns:
+      - name: product_sk
+        description: SHA-256 surrogate key derived from product_id.
+        tests:
+          - unique
+          - not_null
+      - name: product_id
+        tests:
+          - unique
+          - not_null
+      - name: manufacturer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_manufacturers')
+              field: manufacturer_id
+      - name: weight_kg
+        description: Product weight in kg. NULL if source was negative or non-numeric.
+      - name: unit_price
+        description: Unit price. NULL if source was null or non-numeric.
+      - name: is_fragile
+        description: Normalized boolean — TRUE if product requires special handling.
+      - name: dq_invalid_weight
+        description: TRUE when source weight_kg was missing, negative, or non-numeric.
+      - name: dq_null_price
+        description: TRUE when source unit_price was null or non-numeric.
+
+  # ─────────────────────────────────────────────────
+  # stg_retailers
+  # ─────────────────────────────────────────────────
+  - name: stg_retailers
+    description: Cleaned retailer master data with phone validation.
+    columns:
+      - name: retailer_sk
+        tests: [unique, not_null]
+      - name: retailer_id
+        tests: [unique, not_null]
+      - name: retailer_type
+        tests:
+          - accepted_values:
+              values: ['SUPERMARKET', 'PHARMACY', 'ELECTRONICS', 'GENERAL', 'WHOLESALE', 'SPECIALTY']
+              quote: true
+              severity: warn
+      - name: dq_null_phone
+        description: TRUE when phone was null in source.
+
+  # ─────────────────────────────────────────────────
+  # stg_transport_partners
+  # ─────────────────────────────────────────────────
+  - name: stg_transport_partners
+    description: Cleaned transport partner data with rating range validation.
+    columns:
+      - name: transport_partner_sk
+        tests: [unique, not_null]
+      - name: transport_partner_id
+        tests: [unique, not_null]
+      - name: transport_mode
+        tests:
+          - accepted_values:
+              values: ['ROAD', 'RAIL', 'AIR', 'SEA', 'MULTIMODAL']
+      - name: is_active
+        description: Normalized boolean. NULL if source value was unrecognized.
+      - name: rating
+        description: Rating 1.0–5.0. NULL if out of range.
+      - name: dq_invalid_rating
+        description: TRUE when source rating was outside 1.0–5.0 or non-numeric.
+
+  # ─────────────────────────────────────────────────
+  # stg_retailer_orders
+  # ─────────────────────────────────────────────────
+  - name: stg_retailer_orders
+    description: Cleaned retailer order records with date parsing and status validation.
+    columns:
+      - name: order_sk
+        tests: [unique, not_null]
+      - name: order_id
+        tests: [unique, not_null]
+      - name: retailer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_retailers')
+              field: retailer_id
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: ['CANCELLED', 'CLOSED', 'OPEN', 'PROCESSING']
+      - name: days_to_expected_delivery
+        description: Computed lead time in days from order_date to expected_delivery_date.
+      - name: dq_invalid_order_date
+        description: TRUE when order_date could not be parsed.
+      - name: dq_negative_lead_time
+        description: TRUE when expected delivery precedes order date.
+
+  # ─────────────────────────────────────────────────
+  # stg_delivery_confirmation
+  # ─────────────────────────────────────────────────
+  - name: stg_delivery_confirmation
+    description: >
+      Delivery confirmation events. Invalid statuses mapped to UNKNOWN,
+      missing timestamps flagged.
+    columns:
+      - name: delivery_sk
+        tests: [unique, not_null]
+      - name: delivery_id
+        tests: [unique, not_null]
+      - name: delivery_status
+        tests:
+          - accepted_values:
+              values: ['DELIVERED', 'FAILED', 'PARTIAL', 'RETURNED', 'PENDING', 'UNKNOWN']
+      - name: dq_missing_timestamp
+        description: TRUE when delivery_timestamp was null or unparseable.
+      - name: dq_invalid_status
+        description: TRUE when delivery_status was not a known valid value.
+
+  # ─────────────────────────────────────────────────
+  # stg_shipment_allocation
+  # ─────────────────────────────────────────────────
+  - name: stg_shipment_allocation
+    description: Allocation records linking shipments to transport partners and vehicles.
+    columns:
+      - name: allocation_sk
+        tests: [unique, not_null]
+      - name: allocation_id
+        tests: [unique, not_null]
+      - name: allocation_status
+        tests:
+          - accepted_values:
+              values: ['ALLOCATED', 'CONFIRMED', 'CANCELLED', 'COMPLETED']
+      - name: estimated_transit_hours
+        description: Hours between allocation and estimated delivery. Negative values flagged.
+
+  # ─────────────────────────────────────────────────
+  # stg_shipment_requests
+  # ─────────────────────────────────────────────────
+  - name: stg_shipment_requests
+    description: >
+      Flattened and cleaned shipment request records from JSON VARIANT batches.
+      Each row is one shipment. Invalid priorities, dates, and weights are
+      nullified and flagged.
+    columns:
+      - name: shipment_sk
+        tests: [unique, not_null]
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: priority
+        description: Shipment priority. NULL if not in (HIGH, MEDIUM, LOW, CRITICAL).
+        tests:
+          - accepted_values:
+              values: ['HIGH', 'MEDIUM', 'LOW', 'CRITICAL']
+              severity: warn
+      - name: shipment_status
+        tests:
+          - accepted_values:
+              values: [ 'CONFIRMED', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'PENDING']
+      - name: dq_invalid_date
+        description: TRUE when shipment_date could not be parsed.
+      - name: dq_invalid_priority
+        description: TRUE when priority value was not in the accepted enum.
+      - name: dq_invalid_weight
+        description: TRUE when total_weight_kg was missing, negative, or non-numeric.
+      - name: dq_invalid_manufacturer_id
+        description: TRUE when manufacturer_id did not match the expected pattern M[0-9]+.
+
+  # ─────────────────────────────────────────────────
+  # stg_vehicles
+  # ─────────────────────────────────────────────────
+  - name: stg_vehicles
+    description: >
+      Flattened and cleaned vehicle records. Invalid partner IDs and negative
+      capacities are nullified. Boolean availability normalized.
+    columns:
+      - name: vehicle_sk
+        tests: [unique, not_null]
+      - name: vehicle_id
+        tests: [unique, not_null]
+      - name: transport_partner_id
+        description: NULL if source value did not match T[0-9]+ pattern.
+      - name: vehicle_capacity_kg
+        description: Vehicle payload capacity in kg. NULL if source was negative or non-numeric.
+      - name: is_available
+        description: Normalized boolean availability flag.
+      - name: vehicle_status
+        tests:
+          - accepted_values:
+              values: ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'INACTIVE']
+      - name: dq_invalid_partner_id
+        description: TRUE when transport_partner_id did not pass format validation.
+      - name: dq_negative_capacity
+        description: TRUE when vehicle_capacity_kg was negative or zero.
+
+  # ─────────────────────────────────────────────────
+  # stg_shipment_tracking
+  # ─────────────────────────────────────────────────
+  - name: stg_shipment_tracking
+    description: >
+      High-volume GPS tracking events flattened from JSON VARIANT.
+      Invalid coordinates and malformed timestamps are nullified and flagged.
+    columns:
+      - name: tracking_sk
+        tests: [unique, not_null]
+      - name: tracking_id
+        tests: [unique, not_null]
+      - name: latitude
+        description: GPS latitude (-90 to 90). NULL if out of range.
+      - name: longitude
+        description: GPS longitude (-180 to 180). NULL if out of range.
+      - name: tracking_timestamp
+        description: Event timestamp. NULL if source was malformed.
+      - name: dq_invalid_latitude
+        description: TRUE when latitude was outside [-90, 90] or non-numeric.
+      - name: dq_invalid_longitude
+        description: TRUE when longitude was outside [-180, 180] or non-numeric.
+      - name: dq_malformed_timestamp
+        description: TRUE when tracking_time could not be parsed to a timestamp.

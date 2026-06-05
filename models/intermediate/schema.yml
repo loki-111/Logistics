@@ -1,0 +1,76 @@
+version: 2
+
+models:
+
+  - name: int_shipments
+    description: >
+      Unified shipment record joining requests, allocations, and deliveries.
+      One row per shipment_id. Includes derived KPIs: hours_to_allocation,
+      actual_transit_hours, delivery_variance_hours, and delivery_outcome.
+    columns:
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: shipment_sk
+        tests: [unique, not_null]
+      - name: delivery_outcome
+        tests:
+          - accepted_values:
+              values: ['ON_TIME', 'LATE', 'FAILED', 'PENDING', 'OTHER']
+      - name: priority_rank
+        description: Numeric priority rank (1=CRITICAL, 4=LOW, 99=unknown).
+      - name: delivery_variance_hours
+        description: Positive = late, negative = early vs estimated delivery.
+
+  - name: int_vehicle_status
+    description: >
+      Vehicle master enriched with partner details, current allocation state,
+      and lifetime utilization KPIs. One row per vehicle_id.
+    columns:
+      - name: vehicle_id
+        tests: [unique, not_null]
+      - name: vehicle_sk
+        tests: [unique, not_null]
+      - name: is_truly_available
+        description: >
+          TRUE only when is_available=true AND no active allocation exists
+          AND vehicle_status is AVAILABLE.
+      - name: completion_rate
+        description: completed_allocations / total_allocations. 0 when no history.
+
+  - name: int_delivery_performance
+    description: >
+      Daily delivery performance aggregated per transport partner.
+      Grain: transport_partner_id × delivery_date.
+    columns:
+      - name: performance_sk
+        tests: [unique, not_null]
+      - name: on_time_rate
+        description: Fraction of shipments delivered on time for this partner-date.
+      - name: failure_rate
+        description: Fraction of shipments with FAILED delivery outcome.
+
+  - name: int_transport_partner_performance
+    description: >
+      Rolling scorecard per transport partner with all-time and last-30-day
+      KPIs. One row per transport_partner_id.
+    columns:
+      - name: transport_partner_id
+        tests: [unique, not_null]
+      - name: performance_score
+        description: >
+          Composite score: 60% weight on all-time on_time_rate +
+          40% weight on inverse failure rate. Range 0–1.
+
+  - name: int_retailer_activity
+    description: >
+      Retailer-level activity summary covering order volumes, shipment receipt
+      performance, and engagement tier. One row per retailer_id.
+    columns:
+      - name: retailer_id
+        tests: [unique, not_null]
+      - name: retailer_engagement_tier
+        tests:
+          - accepted_values:
+              values: ['ACTIVE', 'MODERATE', 'LAPSING', 'INACTIVE']
+      - name: on_time_receipt_rate
+        description: Fraction of received shipments that arrived on time.

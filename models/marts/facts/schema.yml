@@ -1,0 +1,126 @@
+version: 2
+
+models:
+
+  - name: fct_shipments
+    description: >
+      Core shipment fact table. One row per shipment. All dimension FKs
+      use surrogate keys. Includes SLA outcome measures and transit KPIs.
+    columns:
+      - name: surrogate_key
+        tests: [unique, not_null]
+      - name: shipment_id
+        tests: [unique, not_null]
+      - name: manufacturer_sk
+        tests:
+          - relationships:
+              to: ref('dim_manufacturer')
+              field: manufacturer_sk
+              severity: warn
+      - name: retailer_sk
+        tests:
+          - relationships:
+              to: ref('dim_retailer')
+              field: retailer_sk
+              severity: warn
+      - name: transport_partner_sk
+        tests:
+          - relationships:
+              to: ref('dim_transport_partner')
+              field: transport_partner_sk
+              severity: warn
+      - name: vehicle_sk
+        tests:
+          - relationships:
+              to: ref('dim_vehicle')
+              field: vehicle_sk
+              severity: warn
+      - name: delivery_outcome
+        tests:
+          - accepted_values:
+              values: ['ON_TIME', 'LATE', 'FAILED', 'PENDING', 'OTHER']
+      - name: priority
+        tests:
+          - accepted_values:
+              values: ['HIGH', 'MEDIUM', 'LOW', 'CRITICAL']
+              severity: warn
+      - name: total_weight_kg
+        description: Total shipment weight. Sourced from stg_shipment_requests.
+      - name: delivery_variance_hours
+        description: Positive = late vs estimated. Negative = early.
+      - name: is_on_time
+        description: 1 when delivery_outcome = ON_TIME, else 0.
+      - name: is_late
+        description: 1 when delivery_outcome = LATE, else 0.
+      - name: is_failed
+        description: 1 when delivery_outcome = FAILED, else 0.
+
+  - name: fct_shipment_tracking
+    description: >
+      High-volume GPS tracking event fact. One row per tracking event.
+      Only records passing coordinate and timestamp DQ checks are loaded.
+    columns:
+      - name: surrogate_key
+        tests: [unique, not_null]
+      - name: tracking_id
+        tests: [unique, not_null]
+      - name: latitude
+        description: GPS latitude (-90 to 90). Never null in this model (filtered upstream).
+        tests: [not_null]
+      - name: longitude
+        description: GPS longitude (-180 to 180). Never null in this model.
+        tests: [not_null]
+      - name: tracking_timestamp
+        tests: [not_null]
+      - name: vehicle_sk
+        tests:
+          - relationships:
+              to: ref('dim_vehicle')
+              field: vehicle_sk
+              severity: warn
+
+  - name: fct_deliveries
+    description: >
+      Delivery confirmation fact. One row per confirmed delivery event.
+      Inherits shipment dimension FKs via fct_shipments join.
+    columns:
+      - name: surrogate_key
+        tests: [unique, not_null]
+      - name: delivery_id
+        tests: [unique, not_null]
+      - name: delivery_status
+        tests:
+          - accepted_values:
+              values: ['DELIVERED', 'FAILED', 'PARTIAL', 'RETURNED', 'PENDING', 'UNKNOWN']
+      - name: is_on_time
+        description: 1 when delivery_outcome = ON_TIME.
+      - name: is_late
+        description: 1 when delivery_outcome = LATE.
+      - name: is_failed
+        description: 1 when delivery_status = FAILED.
+
+  - name: fct_orders
+    description: >
+      Retailer order fact table. One row per order. Linked to shipment and
+      delivery outcomes for SLA reporting.
+    columns:
+      - name: surrogate_key
+        tests: [unique, not_null]
+      - name: order_id
+        tests: [unique, not_null]
+      - name: retailer_sk
+        tests:
+          - relationships:
+              to: ref('dim_retailer')
+              field: retailer_sk
+              severity: warn
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: ['CLOSED', 'OPEN', 'PROCESSING', 'CANCELLED']
+      - name: days_to_expected_delivery
+        description: Lead time from order_date to expected_delivery_date.
+      - name: is_on_time
+        description: 1 when delivery_outcome = ON_TIME.
+      - name: is_cancelled
+        description: 1 when order_status = CANCELLED.

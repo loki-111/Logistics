@@ -1,0 +1,175 @@
+version: 2
+
+models:
+
+  - name: rpt_logistics
+    description: >
+      Business-ready reporting model for Domo dashboards.
+      Combines shipment facts with date, manufacturer, retailer,
+      transport partner, and vehicle dimensions.
+      Used for drill-down analysis, root cause analysis,
+      operational reporting, and executive dashboards.
+
+    columns:
+
+      - name: shipment_id
+        description: Unique shipment identifier.
+        tests:
+          - unique
+          - not_null
+
+      - name: shipment_date_key
+        description: Shipment date foreign key.
+        tests:
+          - not_null
+
+      - name: manufacturer_sk
+        tests:
+          - relationships:
+              to: ref('dim_manufacturer')
+              field: manufacturer_sk
+
+      - name: retailer_sk
+        tests:
+          - relationships:
+              to: ref('dim_retailer')
+              field: retailer_sk
+
+      - name: transport_partner_sk
+        tests:
+          - relationships:
+              to: ref('dim_transport_partner')
+              field: transport_partner_sk
+
+      - name: vehicle_sk
+        tests:
+          - relationships:
+              to: ref('dim_vehicle')
+              field: vehicle_sk
+
+      - name: delivery_outcome
+        tests:
+          - accepted_values:
+              values:
+                - ON_TIME
+                - LATE
+                - FAILED
+                - PENDING
+                - OTHER
+
+      - name: on_time_flag
+        description: 1 when shipment delivered on time.
+
+      - name: late_flag
+        description: 1 when shipment delivered late.
+
+      - name: failed_flag
+        description: 1 when shipment failed.
+
+      - name: delivered_flag
+        description: 1 when shipment was delivered.
+
+      - name: sla_status
+        description: SLA classification.
+
+      - name: transit_bucket
+        description: Transit time bucket.
+
+      - name: delay_bucket
+        description: Delivery delay bucket.
+
+      - name: allocation_bucket
+        description: Vehicle allocation delay bucket.
+
+      - name: weight_bucket
+        description: Shipment weight bucket.
+
+      - name: performance_score
+        description: Transport partner performance score.
+
+      - name: performance_band
+        description: Partner performance category.
+
+      - name: vehicle_availability_status
+        description: Vehicle current availability.
+
+      - name: utilization_band
+        description: Vehicle utilization category.
+
+      - name: actual_transit_hours
+        description: Actual shipment transit hours.
+
+      - name: delivery_variance_hours
+        description: Delivery variance from estimated time.
+
+      - name: total_weight_kg
+        description: Shipment weight.
+
+
+  - name: logistics_kpi
+    description: >
+      Aggregated logistics KPI model used for KPI cards,
+      alerts, scorecards, and executive reporting.
+
+    columns:
+
+
+      - name: total_shipments
+        description: Total shipment count.
+
+      - name: active_manufacturers
+        description: Number of active manufacturers.
+
+      - name: active_retailers
+        description: Number of active retailers.
+
+      - name: active_transport_partners
+        description: Number of active transport partners.
+
+      - name: active_vehicles
+        description: Number of active vehicles.
+
+      - name: on_time_shipments
+        description: Total on-time shipments.
+
+      - name: late_shipments
+        description: Total late shipments.
+
+      - name: failed_shipments
+        description: Total failed shipments.
+
+      - name: on_time_rate
+        description: On-time shipment percentage.
+
+      - name: late_rate
+        description: Late shipment percentage.
+
+      - name: failure_rate
+        description: Failed shipment percentage.
+
+      - name: avg_transit_hours
+        description: Average shipment transit hours.
+
+      - name: avg_allocation_hours
+        description: Average hours required for allocation.
+
+      - name: avg_delivery_variance_hours
+        description: Average delivery variance.
+
+      - name: total_weight_kg
+        description: Total shipment weight.
+
+      - name: avg_weight_per_shipment
+        description: Average shipment weight.
+
+      - name: avg_partner_score
+        description: Average transport partner score.
+
+      - name: available_vehicles
+        description: Available vehicles.
+
+      - name: total_vehicles
+        description: Total vehicles.
+
+      - name: vehicle_availability_rate
+        description: Percentage of available vehicles.

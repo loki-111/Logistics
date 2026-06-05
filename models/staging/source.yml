@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw logistic tables loaded manually into Snowflake
+    database: logistic
+    schema: RAW
+
+    tables:
+      - name: raw_manufacturers
+
+      - name: raw_products
+
+      - name: raw_retailers
+
+      - name: raw_retailer_orders
+
+      - name: raw_transport_partners
+
+      - name: raw_delivery_confirmation
+
+      - name: raw_shipment_requests
+
+      - name: raw_shipment_tracking
+
+      - name: raw_vehicles
+
+      - name: raw_shipment_allocation

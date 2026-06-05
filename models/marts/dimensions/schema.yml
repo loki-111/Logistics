@@ -1,0 +1,107 @@
+version: 2
+
+models:
+
+  - name: dim_manufacturer
+    description: >
+      SCD Type 1 manufacturer dimension. One row per manufacturer, always
+      reflecting current state. Enriched with aggregate shipment KPIs.
+    columns:
+      - name: manufacturer_sk
+        description: SHA-256 surrogate key. Use as FK in fact tables.
+        tests: [unique, not_null]
+      - name: manufacturer_id
+        description: Natural business key.
+        tests: [unique, not_null]
+      - name: manufacturer_name
+        tests: [not_null]
+      - name: manufacturer_type
+        tests:
+          - not_null
+      - name: delivery_success_rate
+        description: delivered_shipments / total_shipments. 0 when no history.
+
+  - name: dim_retailer
+    description: >
+      SCD Type 1 retailer dimension enriched with order volume and shipment
+      receipt performance from int_retailer_activity.
+    columns:
+      - name: retailer_sk
+        tests: [unique, not_null]
+      - name: retailer_id
+        tests: [unique, not_null]
+      - name: retailer_engagement_tier
+        tests:
+          - accepted_values:
+              values: ['ACTIVE', 'MODERATE', 'LAPSING', 'INACTIVE']
+
+  - name: dim_transport_partner
+    description: >
+      Current-state transport partner dimension with performance scorecard
+      and tier classification (PLATINUM/GOLD/SILVER/BRONZE).
+    columns:
+      - name: transport_partner_sk
+        tests: [unique, not_null]
+      - name: transport_partner_id
+        tests: [unique, not_null]
+      - name: performance_tier
+        tests:
+          - accepted_values:
+              values: ['PLATINUM', 'GOLD', 'SILVER', 'BRONZE']
+      - name: performance_score
+        description: Composite score 0–1. Higher is better.
+
+  - name: dim_vehicle
+    description: >
+      Current-state vehicle dimension with partner context and utilization KPIs.
+      SCD Type 2 history is in the snapshot_vehicles snapshot.
+    columns:
+      - name: vehicle_sk
+        tests: [unique, not_null]
+      - name: vehicle_id
+        tests: [unique, not_null]
+      - name: capacity_tier
+        tests:
+          - accepted_values:
+              values: ['HEAVY', 'MEDIUM', 'LIGHT', 'MICRO', 'UNKNOWN']
+      - name: is_truly_available
+        description: Composite availability check across status, flag, and allocation.
+
+  - name: dim_product
+    description: >
+      Product dimension with manufacturer context, weight tier, and price tier.
+    columns:
+      - name: product_sk
+        tests: [unique, not_null]
+      - name: product_id
+        tests: [unique, not_null]
+      - name: manufacturer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_manufacturer')
+              field: manufacturer_id
+      - name: weight_tier
+        tests:
+          - accepted_values:
+              values: ['HEAVY', 'MEDIUM', 'LIGHT', 'MICRO', 'UNKNOWN']
+      - name: price_tier
+        tests:
+          - accepted_values:
+              values: ['PREMIUM', 'MID_RANGE', 'ECONOMY', 'BUDGET', 'UNKNOWN']
+
+  - name: dim_date
+    description: >
+      Date dimension spanning 2020-01-01 to 2030-12-31. Includes calendar
+      attributes, fiscal year/quarter (April start), and relative date flags.
+    columns:
+      - name: date_id
+        description: DATE primary key.
+        tests: [unique, not_null]
+      - name: date_key_int
+        description: YYYYMMDD integer surrogate. Use as FK in fact tables.
+        tests: [unique, not_null]
+      - name: fiscal_year
+        description: Fiscal year (April start). e.g., April 2026 → FY 2026.
+      - name: fiscal_quarter
+        description: Fiscal quarter 1–4.

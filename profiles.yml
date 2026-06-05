@@ -1,4 +1,4 @@
-ny40_account:
+Ny40_account:
   target: dev
   outputs:
     dev:

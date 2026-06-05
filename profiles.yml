@@ -3,10 +3,10 @@ Ny40_account:
   outputs:
     dev:
       type: snowflake
-      account: <your_account>
-      user: <your_user>
-      password: <your_password>
-      role: <your_role>
-      database: <your_db>
-      warehouse: <your_warehouse>
-      schema: <your_schema>
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: accountadmin
+      database: logistic
+      warehouse: compute_wh
+      schema: raw
